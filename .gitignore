@@ -4,6 +4,7 @@ example.tf
 terraform.tfplan
 terraform.tfstate
 bin/
+builtin/providers/marathon/test/test.tf
 config/y.go
 config/y.output
 modules-dev/
