@@ -31,6 +31,10 @@ type AWSClient struct {
 	route53         *route53.Route53
 }
 
+func (a *AWSClient) Ec2Conn() *ec2.EC2 {
+	return a.ec2conn
+}
+
 // Client configures and returns a fully initailized AWSClient
 func (c *Config) Client() (interface{}, error) {
 	var client AWSClient
