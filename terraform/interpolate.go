@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"strconv"
 
 	"github.com/hashicorp/terraform/config"
 	"github.com/hashicorp/terraform/config/lang/ast"
@@ -341,7 +342,14 @@ func (i *Interpolater) computeResourceVariable(
 			// Lists and sets make this
 			key := fmt.Sprintf("%s.#", strings.Join(parts[:i], "."))
 			if attr, ok := r.Primary.Attributes[key]; ok {
-				return attr, nil
+				numberOfValues, err := strconv.Atoi(attr)
+				if err != nil {
+					return "", fmt.Errorf("Attribute that should be an int is not an int: attr - %v, error - %v",
+						attr,
+						err)
+				}
+				values := computeValuesFromParts(numberOfValues, parts, r.Primary.Attributes)
+				return strings.Join(values, config.InterpSplitDelim), nil
 			}
 
 			// Maps make this
@@ -367,6 +375,41 @@ MISSING:
 		id,
 		v.Field,
 		v.FullKey())
+}
+
+func computeValuesFromParts(total int, parts []string, attributes map[string]string) []string {
+	var values []string
+
+	firstPart := parts[0]
+
+	matchingAttributes := make(map[string]string)
+	for attribute, value := range attributes {
+		if attributeParts := strings.Split(attribute, "."); attributeParts[0] == firstPart {
+			if attributeParts[1] != "#" {
+				matchingAttributes[attribute] = value
+			}
+		}
+	}
+
+	secondPart := parts[1]
+
+	if secondPart == "*" {
+		for _, value := range matchingAttributes {
+			values = append(values, value)
+		}
+	} else {
+		var valueHolder []string
+		for _, value := range matchingAttributes {
+			valueHolder = append(valueHolder, value)
+		}
+		index, err := strconv.Atoi(secondPart)
+		if err != nil {
+			return values
+		}
+		values = append(values, valueHolder[index])
+	}
+
+	return values
 }
 
 func (i *Interpolater) computeResourceMultiVariable(
