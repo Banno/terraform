@@ -35,10 +35,17 @@ func resourceAwsRoute53Zone() *schema.Resource {
 
 			"name_servers": &schema.Schema{
 				Type:     schema.TypeSet,
-				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": &schema.Schema{
+							Type: schema.TypeString,
+						},
+					},
+				},
 				Set: func(v interface{}) int {
-					return hashcode.String(v.(string))
+					m := v.(map[string]interface{})
+					return hashcode.String(m["name"].(string))
 				},
 			},
 
@@ -101,8 +108,15 @@ func resourceAwsRoute53ZoneRead(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	ns := zone.DelegationSet.NameServers
-	if err := d.Set("name_servers", ns); err != nil {
+	nss := zone.DelegationSet.NameServers
+	nssm := make([]map[string]interface{}, len(nss))
+	for i, ns := range nss {
+		nsm := make(map[string]interface{})
+		nsm["name"] = ns
+		nssm[i] = nsm
+	}
+	log.Printf("[DEBUG] built nssm as %#v", nssm)
+	if err := d.Set("name_servers", nssm); err != nil {
 		return fmt.Errorf("[DEBUG] Error setting name servers for: %s, error: %#v", d.Id(), err)
 	}
 
