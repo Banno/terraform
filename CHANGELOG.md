@@ -2,10 +2,11 @@
 
 IMPROVEMENTS:
 
- * **New config function: `length`** - Get the length of a string or a list.
+  * **New config function: `length`** - Get the length of a string or a list.
       Useful in conjunction with `split`. [GH-1495]
- * core: Improve error message on diff mismatch [GH-1501]
- * provisioner/file: expand `~` in source path [GH-1569]
+  * core: Improve error message on diff mismatch [GH-1501]
+  * provisioner/file: expand `~` in source path [GH-1569]
+  * provider/docker: `docker_container` can specify links [GH-1564]
 
 BUG FIXES:
 
@@ -17,9 +18,14 @@ BUG FIXES:
       edge cases around matching prefixes, which could cause cycles [GH-1527]
   * core: fix issue causing diff mismatch errors in certain scenarios during
       resource replacement [GH-1515]
+  * core: don't panic if variable default type is invalid [GH-1344]
   * command: remote states with uppercase types work [GH-1356]
   * provider/aws: launch configuration ID set after create success [GH-1518]
+  * provider/aws: manually deleted S3 buckets are refreshed properly [GH-1574]
+  * provider/aws: only check for EIP allocation ID in VPC [GH-1555]
   * provider/openstack: region config is not required [GH-1441]
+  * provisioner/remote-exec: add random number to uploaded script path so
+      that parallel provisions work [GH-1588]
 
 ## 0.4.2 (April 10, 2015)
 
