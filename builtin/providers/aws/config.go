@@ -38,8 +38,8 @@ type AWSClient struct {
 	region          string
 	rdsconn         *rds.RDS
 	iamconn         *iam.IAM
-	elasticacheconn *elasticache.ElastiCache
 	cloudwatchconn  *cloudwatch.CloudWatch
+	elasticacheconn *elasticache.ElastiCache
 }
 
 // Client configures and returns a fully initailized AWSClient
@@ -100,12 +100,10 @@ func (c *Config) Client() (interface{}, error) {
 			Region:      "us-east-1",
 		})
 
-		log.Println("[INFO] Initializing Elasticache Connection")
-		client.elasticacheconn = elasticache.New(awsConfig)
-
 		log.Println("[INFO] Initializing CloudWatch SDK connection")
 		client.cloudwatchconn = cloudwatch.New(awsConfig)
-
+		log.Println("[INFO] Initializing Elasticache Connection")
+		client.elasticacheconn = elasticache.New(awsConfig)
 	}
 
 	if len(errs) > 0 {
