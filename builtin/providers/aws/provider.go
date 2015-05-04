@@ -100,6 +100,7 @@ func Provider() terraform.ResourceProvider {
 			"aws_network_interface":            resourceAwsNetworkInterface(),
 			"aws_route53_record":               resourceAwsRoute53Record(),
 			"aws_route53_zone":                 resourceAwsRoute53Zone(),
+			"aws_route53_health_check":         resourceAwsRoute53HealthCheck(),
 			"aws_route_table":                  resourceAwsRouteTable(),
 			"aws_route_table_association":      resourceAwsRouteTableAssociation(),
 			"aws_s3_bucket":                    resourceAwsS3Bucket(),
