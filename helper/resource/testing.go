@@ -75,6 +75,12 @@ type TestStep struct {
 
 	// Destroy will create a destroy plan if set to true.
 	Destroy bool
+
+	// TransientResource indicates that resources created as part
+	// of this test step are temporary and might be recreated anew
+	// with every planning step. This should only be set for
+	// pseudo-resources, like the null resource or templates.
+	TransientResource bool
 }
 
 // Test performs an acceptance test on a resource.
@@ -203,13 +209,16 @@ func testStep(
 	opts.Destroy = step.Destroy
 	ctx := terraform.NewContext(&opts)
 	if ws, es := ctx.Validate(); len(ws) > 0 || len(es) > 0 {
-		estrs := make([]string, len(es))
-		for i, e := range es {
-			estrs[i] = e.Error()
+		if len(es) > 0 {
+			estrs := make([]string, len(es))
+			for i, e := range es {
+				estrs[i] = e.Error()
+			}
+			return state, fmt.Errorf(
+				"Configuration is invalid.\n\nWarnings: %#v\n\nErrors: %#v",
+				ws, estrs)
 		}
-		return state, fmt.Errorf(
-			"Configuration is invalid.\n\nWarnings: %#v\n\nErrors: %#v",
-			ws, estrs)
+		log.Printf("[WARN] Config warnings: %#v", ws)
 	}
 
 	// Refresh!
@@ -260,7 +269,7 @@ func testStep(
 	if p, err := ctx.Plan(); err != nil {
 		return state, fmt.Errorf("Error on second follow-up plan: %s", err)
 	} else {
-		if p.Diff != nil && !p.Diff.Empty() {
+		if p.Diff != nil && !p.Diff.Empty() && !step.TransientResource {
 			return state, fmt.Errorf(
 				"After applying this step and refreshing, the plan was not empty:\n\n%s", p)
 		}

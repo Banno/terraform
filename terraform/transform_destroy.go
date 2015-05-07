@@ -45,9 +45,18 @@ type GraphNodeDestroyPrunable interface {
 	DestroyInclude(*ModuleDiff, *ModuleState) bool
 }
 
+// GraphNodeEdgeInclude can be implemented to not include something
+// as an edge within the destroy graph. This is usually done because it
+// might cause unnecessary cycles.
+type GraphNodeDestroyEdgeInclude interface {
+	DestroyEdgeInclude(dag.Vertex) bool
+}
+
 // DestroyTransformer is a GraphTransformer that creates the destruction
 // nodes for things that _might_ be destroyed.
-type DestroyTransformer struct{}
+type DestroyTransformer struct {
+	FullDestroy bool
+}
 
 func (t *DestroyTransformer) Transform(g *Graph) error {
 	var connect, remove []dag.Edge
@@ -102,6 +111,13 @@ func (t *DestroyTransformer) transform(
 		// Inherit all the edges from the old node
 		downEdges := g.DownEdges(v).List()
 		for _, edgeRaw := range downEdges {
+			// If this thing specifically requests to not be depended on
+			// by destroy nodes, then don't.
+			if i, ok := edgeRaw.(GraphNodeDestroyEdgeInclude); ok &&
+				!i.DestroyEdgeInclude(v) {
+				continue
+			}
+
 			g.Connect(dag.BasicEdge(n, edgeRaw.(dag.Vertex)))
 		}
 
@@ -204,20 +220,25 @@ type PruneDestroyTransformer struct {
 }
 
 func (t *PruneDestroyTransformer) Transform(g *Graph) error {
-	var modDiff *ModuleDiff
-	var modState *ModuleState
-	if t.Diff != nil {
-		modDiff = t.Diff.ModuleByPath(g.Path)
-	}
-	if t.State != nil {
-		modState = t.State.ModuleByPath(g.Path)
-	}
-
 	for _, v := range g.Vertices() {
 		// If it is not a destroyer, we don't care
 		dn, ok := v.(GraphNodeDestroyPrunable)
 		if !ok {
 			continue
+		}
+
+		path := g.Path
+		if pn, ok := v.(GraphNodeSubPath); ok {
+			path = pn.Path()
+		}
+
+		var modDiff *ModuleDiff
+		var modState *ModuleState
+		if t.Diff != nil {
+			modDiff = t.Diff.ModuleByPath(path)
+		}
+		if t.State != nil {
+			modState = t.State.ModuleByPath(path)
 		}
 
 		// Remove it if we should

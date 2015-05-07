@@ -54,6 +54,13 @@ func Provider() terraform.ResourceProvider {
 				InputDefault: "us-east-1",
 			},
 
+			"max_retries": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     11,
+				Description: descriptions["max_retries"],
+			},
+
 			"allowed_account_ids": &schema.Schema{
 				Type:          schema.TypeSet,
 				Elem:          &schema.Schema{Type: schema.TypeString},
@@ -86,11 +93,20 @@ func Provider() terraform.ResourceProvider {
 			"aws_db_security_group":            resourceAwsDbSecurityGroup(),
 			"aws_db_subnet_group":              resourceAwsDbSubnetGroup(),
 			"aws_ebs_volume":                   resourceAwsEbsVolume(),
-			"aws_elasticache_cluster":          resourceAwsElasticacheCluster(),
-			"aws_elasticache_subnet_group":     resourceAwsElasticacheSubnetGroup(),
-			"aws_elasticache_security_group":   resourceAwsElasticacheSecurityGroup(),
 			"aws_eip":                          resourceAwsEip(),
+			"aws_elasticache_cluster":          resourceAwsElasticacheCluster(),
+			"aws_elasticache_security_group":   resourceAwsElasticacheSecurityGroup(),
+			"aws_elasticache_subnet_group":     resourceAwsElasticacheSubnetGroup(),
 			"aws_elb":                          resourceAwsElb(),
+			"aws_iam_access_key":               resourceAwsIamAccessKey(),
+			"aws_iam_group_policy":             resourceAwsIamGroupPolicy(),
+			"aws_iam_group":                    resourceAwsIamGroup(),
+			"aws_iam_instance_profile":         resourceAwsIamInstanceProfile(),
+			"aws_iam_policy":                   resourceAwsIamPolicy(),
+			"aws_iam_role_policy":              resourceAwsIamRolePolicy(),
+			"aws_iam_role":                     resourceAwsIamRole(),
+			"aws_iam_user_policy":              resourceAwsIamUserPolicy(),
+			"aws_iam_user":                     resourceAwsIamUser(),
 			"aws_instance":                     resourceAwsInstance(),
 			"aws_internet_gateway":             resourceAwsInternetGateway(),
 			"aws_key_pair":                     resourceAwsKeyPair(),
@@ -99,19 +115,23 @@ func Provider() terraform.ResourceProvider {
 			"aws_main_route_table_association": resourceAwsMainRouteTableAssociation(),
 			"aws_network_acl":                  resourceAwsNetworkAcl(),
 			"aws_network_interface":            resourceAwsNetworkInterface(),
+			"aws_proxy_protocol_policy":        resourceAwsProxyProtocolPolicy(),
 			"aws_route53_record":               resourceAwsRoute53Record(),
 			"aws_route53_zone":                 resourceAwsRoute53Zone(),
 			"aws_route53_health_check":         resourceAwsRoute53HealthCheck(),
 			"aws_route_table":                  resourceAwsRouteTable(),
 			"aws_route_table_association":      resourceAwsRouteTableAssociation(),
+			"aws_route_table":                  resourceAwsRouteTable(),
 			"aws_s3_bucket":                    resourceAwsS3Bucket(),
 			"aws_security_group":               resourceAwsSecurityGroup(),
+			"aws_security_group_rule":          resourceAwsSecurityGroupRule(),
 			"aws_subnet":                       resourceAwsSubnet(),
-			"aws_vpc":                          resourceAwsVpc(),
-			"aws_vpc_peering_connection":       resourceAwsVpcPeeringConnection(),
-			"aws_vpc_dhcp_options":             resourceAwsVpcDhcpOptions(),
 			"aws_vpc_dhcp_options_association": resourceAwsVpcDhcpOptionsAssociation(),
+			"aws_vpc_dhcp_options":             resourceAwsVpcDhcpOptions(),
+			"aws_vpc_peering_connection":       resourceAwsVpcPeeringConnection(),
+			"aws_vpc":                          resourceAwsVpc(),
 			"aws_vpn_connection":               resourceAwsVpnConnection(),
+			"aws_vpn_connection_route":         resourceAwsVpnConnectionRoute(),
 			"aws_vpn_gateway":                  resourceAwsVpnGateway(),
 		},
 
@@ -134,15 +154,20 @@ func init() {
 
 		"token": "session token. A session token is only required if you are\n" +
 			"using temporary security credentials.",
+
+		"max_retries": "The maximum number of times an AWS API request is\n" +
+			"being executed. If the API request still fails, an error is\n" +
+			"thrown.",
 	}
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	config := Config{
-		AccessKey: d.Get("access_key").(string),
-		SecretKey: d.Get("secret_key").(string),
-		Token:     d.Get("token").(string),
-		Region:    d.Get("region").(string),
+		AccessKey:  d.Get("access_key").(string),
+		SecretKey:  d.Get("secret_key").(string),
+		Token:      d.Get("token").(string),
+		Region:     d.Get("region").(string),
+		MaxRetries: d.Get("max_retries").(int),
 	}
 
 	if v, ok := d.GetOk("allowed_account_ids"); ok {

@@ -45,6 +45,7 @@ func resourceAwsSecurityGroup() *schema.Resource {
 			"ingress": &schema.Schema{
 				Type:     schema.TypeSet,
 				Optional: true,
+				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"from_port": &schema.Schema{
@@ -148,7 +149,7 @@ func resourceAwsSecurityGroupCreate(d *schema.ResourceData, meta interface{}) er
 
 	securityGroupOpts := &ec2.CreateSecurityGroupInput{}
 
-	if v := d.Get("vpc_id"); v != nil {
+	if v, ok := d.GetOk("vpc_id"); ok {
 		securityGroupOpts.VPCID = aws.String(v.(string))
 	}
 
@@ -185,10 +186,42 @@ func resourceAwsSecurityGroupCreate(d *schema.ResourceData, meta interface{}) er
 		Refresh: SGStateRefreshFunc(conn, d.Id()),
 		Timeout: 1 * time.Minute,
 	}
-	if _, err := stateConf.WaitForState(); err != nil {
+
+	resp, err := stateConf.WaitForState()
+	if err != nil {
 		return fmt.Errorf(
 			"Error waiting for Security Group (%s) to become available: %s",
 			d.Id(), err)
+	}
+
+	// AWS defaults all Security Groups to have an ALLOW ALL egress rule. Here we
+	// revoke that rule, so users don't unknowningly have/use it.
+	group := resp.(*ec2.SecurityGroup)
+	if group.VPCID != nil && *group.VPCID != "" {
+		log.Printf("[DEBUG] Revoking default egress rule for Security Group for %s", d.Id())
+
+		req := &ec2.RevokeSecurityGroupEgressInput{
+			GroupID: createResp.GroupID,
+			IPPermissions: []*ec2.IPPermission{
+				&ec2.IPPermission{
+					FromPort: aws.Long(int64(0)),
+					ToPort:   aws.Long(int64(0)),
+					IPRanges: []*ec2.IPRange{
+						&ec2.IPRange{
+							CIDRIP: aws.String("0.0.0.0/0"),
+						},
+					},
+					IPProtocol: aws.String("-1"),
+				},
+			},
+		}
+
+		if _, err = conn.RevokeSecurityGroupEgress(req); err != nil {
+			return fmt.Errorf(
+				"Error revoking default egress rule for Security Group (%s): %s",
+				d.Id(), err)
+		}
+
 	}
 
 	return resourceAwsSecurityGroupUpdate(d, meta)
@@ -261,7 +294,7 @@ func resourceAwsSecurityGroupDelete(d *schema.ResourceData, meta interface{}) er
 
 	log.Printf("[DEBUG] Security Group destroy: %v", d.Id())
 
-	return resource.Retry(5*time.Minute, func() error {
+	return resource.Retry(2*time.Minute, func() error {
 		_, err := conn.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 			GroupID: aws.String(d.Id()),
 		})
