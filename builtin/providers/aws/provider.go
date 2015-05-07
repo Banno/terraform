@@ -121,7 +121,6 @@ func Provider() terraform.ResourceProvider {
 			"aws_route53_health_check":         resourceAwsRoute53HealthCheck(),
 			"aws_route_table":                  resourceAwsRouteTable(),
 			"aws_route_table_association":      resourceAwsRouteTableAssociation(),
-			"aws_route_table":                  resourceAwsRouteTable(),
 			"aws_s3_bucket":                    resourceAwsS3Bucket(),
 			"aws_security_group":               resourceAwsSecurityGroup(),
 			"aws_security_group_rule":          resourceAwsSecurityGroupRule(),
