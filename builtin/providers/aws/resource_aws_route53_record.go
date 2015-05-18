@@ -97,16 +97,6 @@ func resourceAwsRoute53Record() *schema.Resource {
 				Optional: true,
 			},
 
-			"failover": &schema.Schema{ // PRIMARY | SECONDARY
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
-			"health_check_id": &schema.Schema{ // ID of health check
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
 			"records": &schema.Schema{
 				Type: schema.TypeSet,
 				Elem: &schema.Schema{Type: schema.TypeString},

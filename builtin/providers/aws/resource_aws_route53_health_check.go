@@ -143,7 +143,6 @@ func resourceAwsRoute53HealthCheckCreate(d *schema.ResourceData, meta interface{
 	resp := respRaw.(*route53.CreateHealthCheckOutput)
 	d.SetId(*resp.HealthCheck.ID)
 
-	add - aws - route53 - health - checks
 	if err := setTagsR53(conn, d, "healthcheck"); err != nil {
 		return err
 	}
