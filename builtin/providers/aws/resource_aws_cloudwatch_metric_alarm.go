@@ -118,22 +118,29 @@ func resourceAwsCloudWatchMetricAlarmRead(d *schema.ResourceData, meta interface
 		return err
 	}
 	if a == nil {
+		d.SetId("")
 		return nil
 	}
 
 	log.Printf("[DEBUG] Read Metric Alarm: %s", d.Get("alarm_name"))
 
 	d.Set("actions_enabled", a.ActionsEnabled)
-	d.Set("alarm_actions", a.AlarmActions)
+	if err := d.Set("alarm_actions", a.AlarmActions); err != nil {
+		log.Printf("[WARN] Error setting Alarm Actions: %s", err)
+	}
 	d.Set("alarm_description", a.AlarmDescription)
 	d.Set("alarm_name", a.AlarmName)
 	d.Set("comparison_operator", a.ComparisonOperator)
 	d.Set("dimensions", a.Dimensions)
 	d.Set("evaluation_periods", a.EvaluationPeriods)
-	d.Set("insufficient_data_actions", a.InsufficientDataActions)
+	if err := d.Set("insufficient_data_actions", a.InsufficientDataActions); err != nil {
+		log.Printf("[WARN] Error setting Insufficient Data Actions: %s", err)
+	}
 	d.Set("metric_name", a.MetricName)
 	d.Set("namespace", a.Namespace)
-	d.Set("ok_actions", a.OKActions)
+	if err := d.Set("ok_actions", a.OKActions); err != nil {
+		log.Printf("[WARN] Error setting OK Actions: %s", err)
+	}
 	d.Set("period", a.Period)
 	d.Set("statistic", a.Statistic)
 	d.Set("threshold", a.Threshold)
@@ -254,13 +261,12 @@ func getAwsCloudWatchMetricAlarm(d *schema.ResourceData, meta interface{}) (*clo
 		return nil, nil
 	}
 
-    // Find it and return it
+	// Find it and return it
 	for idx, ma := range resp.MetricAlarms {
 		if *ma.AlarmName == d.Id() {
 			return resp.MetricAlarms[idx], nil
 		}
 	}
 
-	d.SetId("")
 	return nil, nil
 }
