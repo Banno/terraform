@@ -487,6 +487,12 @@ func resourceAwsInstanceCreate(d *schema.ResourceData, meta interface{}) error {
 			}
 
 			if dn, err := fetchRootDeviceName(d.Get("ami").(string), conn); err == nil {
+				if dn == nil {
+					return fmt.Errorf(
+						"Expected 1 AMI for ID: %s, got none",
+						d.Get("ami").(string))
+				}
+
 				blockDevices = append(blockDevices, &ec2.BlockDeviceMapping{
 					DeviceName: dn,
 					EBS:        ebs,
@@ -610,7 +616,7 @@ func resourceAwsInstanceRead(d *schema.ResourceData, meta interface{}) error {
 		d.Set("subnet_id", instance.SubnetID)
 	}
 	d.Set("ebs_optimized", instance.EBSOptimized)
-	d.Set("tags", tagsToMapSDK(instance.Tags))
+	d.Set("tags", tagsToMap(instance.Tags))
 
 	// Determine whether we're referring to security groups with
 	// IDs or names. We use a heuristic to figure this out. By default,
@@ -700,7 +706,7 @@ func resourceAwsInstanceUpdate(d *schema.ResourceData, meta interface{}) error {
 	// TODO(mitchellh): wait for the attributes we modified to
 	// persist the change...
 
-	if err := setTagsSDK(conn, d); err != nil {
+	if err := setTags(conn, d); err != nil {
 		return err
 	} else {
 		d.SetPartial("tags")
@@ -874,6 +880,8 @@ func fetchRootDeviceName(ami string, conn *ec2.EC2) (*string, error) {
 	if res, err := conn.DescribeImages(req); err == nil {
 		if len(res.Images) == 1 {
 			return res.Images[0].RootDeviceName, nil
+		} else if len(res.Images) == 0 {
+			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Expected 1 AMI for ID: %s, got: %#v", ami, res.Images)
 		}

@@ -24,6 +24,10 @@ func TestAccAWSS3Bucket_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
 					resource.TestCheckResourceAttr(
+						"aws_s3_bucket.bucket", "hosted_zone_id", HostedZoneIDForRegion("us-west-2")),
+					resource.TestCheckResourceAttr(
+						"aws_s3_bucket.bucket", "region", "us-west-2"),
+					resource.TestCheckResourceAttr(
 						"aws_s3_bucket.bucket", "website_endpoint", ""),
 				),
 			},
@@ -42,7 +46,7 @@ func TestAccAWSS3Bucket_Website(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
 					testAccCheckAWSS3BucketWebsite(
-						"aws_s3_bucket.bucket", "index.html", ""),
+						"aws_s3_bucket.bucket", "index.html", "", ""),
 					resource.TestCheckResourceAttr(
 						"aws_s3_bucket.bucket", "website_endpoint", testAccWebsiteEndpoint),
 				),
@@ -52,7 +56,7 @@ func TestAccAWSS3Bucket_Website(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
 					testAccCheckAWSS3BucketWebsite(
-						"aws_s3_bucket.bucket", "index.html", "error.html"),
+						"aws_s3_bucket.bucket", "index.html", "error.html", ""),
 					resource.TestCheckResourceAttr(
 						"aws_s3_bucket.bucket", "website_endpoint", testAccWebsiteEndpoint),
 				),
@@ -62,7 +66,37 @@ func TestAccAWSS3Bucket_Website(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
 					testAccCheckAWSS3BucketWebsite(
-						"aws_s3_bucket.bucket", "", ""),
+						"aws_s3_bucket.bucket", "", "", ""),
+					resource.TestCheckResourceAttr(
+						"aws_s3_bucket.bucket", "website_endpoint", ""),
+				),
+			},
+		},
+	})
+}
+
+func TestAccAWSS3Bucket_WebsiteRedirect(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAWSS3BucketDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccAWSS3BucketWebsiteConfigWithRedirect,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
+					testAccCheckAWSS3BucketWebsite(
+						"aws_s3_bucket.bucket", "", "", "hashicorp.com"),
+					resource.TestCheckResourceAttr(
+						"aws_s3_bucket.bucket", "website_endpoint", testAccWebsiteEndpoint),
+				),
+			},
+			resource.TestStep{
+				Config: testAccAWSS3BucketConfig,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSS3BucketExists("aws_s3_bucket.bucket"),
+					testAccCheckAWSS3BucketWebsite(
+						"aws_s3_bucket.bucket", "", "", ""),
 					resource.TestCheckResourceAttr(
 						"aws_s3_bucket.bucket", "website_endpoint", ""),
 				),
@@ -111,7 +145,7 @@ func testAccCheckAWSS3BucketExists(n string) resource.TestCheckFunc {
 	}
 }
 
-func testAccCheckAWSS3BucketWebsite(n string, indexDoc string, errorDoc string) resource.TestCheckFunc {
+func testAccCheckAWSS3BucketWebsite(n string, indexDoc string, errorDoc string, redirectTo string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, _ := s.RootModule().Resources[n]
 		conn := testAccProvider.Meta().(*AWSClient).s3conn
@@ -130,11 +164,14 @@ func testAccCheckAWSS3BucketWebsite(n string, indexDoc string, errorDoc string) 
 			}
 		}
 
-		if *out.IndexDocument.Suffix != indexDoc {
-			if out.IndexDocument.Suffix != nil {
-				return fmt.Errorf("bad index document suffix: %s", *out.IndexDocument.Suffix)
+		if v := out.IndexDocument; v == nil {
+			if indexDoc != "" {
+				return fmt.Errorf("bad index doc, found nil, expected: %s", indexDoc)
 			}
-			return fmt.Errorf("bad index document suffix, is nil")
+		} else {
+			if *v.Suffix != indexDoc {
+				return fmt.Errorf("bad index doc, expected: %s, got %#v", indexDoc, out.IndexDocument)
+			}
 		}
 
 		if v := out.ErrorDocument; v == nil {
@@ -144,6 +181,16 @@ func testAccCheckAWSS3BucketWebsite(n string, indexDoc string, errorDoc string) 
 		} else {
 			if *v.Key != errorDoc {
 				return fmt.Errorf("bad error doc, expected: %s, got %#v", errorDoc, out.ErrorDocument)
+			}
+		}
+
+		if v := out.RedirectAllRequestsTo; v == nil {
+			if redirectTo != "" {
+				return fmt.Errorf("bad redirect to, found nil, expected: %s", redirectTo)
+			}
+		} else {
+			if *v.HostName != redirectTo {
+				return fmt.Errorf("bad redirect to, expected: %s, got %#v", redirectTo, out.RedirectAllRequestsTo)
 			}
 		}
 
@@ -181,6 +228,17 @@ resource "aws_s3_bucket" "bucket" {
 	website {
 		index_document = "index.html"
 		error_document = "error.html"
+	}
+}
+`, randInt)
+
+var testAccAWSS3BucketWebsiteConfigWithRedirect = fmt.Sprintf(`
+resource "aws_s3_bucket" "bucket" {
+	bucket = "tf-test-bucket-%d"
+	acl = "public-read"
+
+	website {
+		redirect_all_requests_to = "hashicorp.com"
 	}
 }
 `, randInt)

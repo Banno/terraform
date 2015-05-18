@@ -1,12 +1,9 @@
 package aws
 
 import (
-	// "fmt"
 	"log"
-	// "strings"
 	"time"
 
-	// "github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 
@@ -99,14 +96,12 @@ func resourceAwsRoute53HealthCheckUpdate(d *schema.ResourceData, meta interface{
 		return err
 	}
 
-
 	return resourceAwsRoute53HealthCheckRead(d, meta)
 }
 
 func resourceAwsRoute53HealthCheckCreate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).r53conn
 
-	// do we need to check if the optional fields existf before adding them?
 	healthConfig := &route53.HealthCheckConfig{
 		Type:             aws.String(d.Get("type").(string)),
 		FailureThreshold: aws.Long(int64(d.Get("failure_threshold").(int))),
@@ -133,23 +128,11 @@ func resourceAwsRoute53HealthCheckCreate(d *schema.ResourceData, meta interface{
 		healthConfig.ResourcePath = aws.String(v.(string))
 	}
 
-	input := &route53.CreateHealthCheckInput{
-		CallerReference:   aws.String(time.Now().Format(time.RFC3339Nano)),
-		HealthCheckConfig: healthConfig,
-	}
-
 	wait := resource.StateChangeConf{
 		Pending:    []string{"rejected"},
 		Target:     "accepted",
 		Timeout:    5 * time.Minute,
 		MinTimeout: 1 * time.Second,
-		Refresh: func() (interface{}, string, error) {
-			resp, err := conn.CreateHealthCheck(input)
-			if err != nil {
-				return nil, "failure", err
-			}
-			return resp, "accepted", nil
-		},
 	}
 
 	respRaw, err := wait.WaitForState()
@@ -160,11 +143,10 @@ func resourceAwsRoute53HealthCheckCreate(d *schema.ResourceData, meta interface{
 	resp := respRaw.(*route53.CreateHealthCheckOutput)
 	d.SetId(*resp.HealthCheck.ID)
 
-
+	add - aws - route53 - health - checks
 	if err := setTagsR53(conn, d, "healthcheck"); err != nil {
 		return err
 	}
-
 
 	return resourceAwsRoute53HealthCheckRead(d, meta)
 }
@@ -188,17 +170,16 @@ func resourceAwsRoute53HealthCheckRead(d *schema.ResourceData, meta interface{})
 
 	updated := read.HealthCheck.HealthCheckConfig
 	d.Set("type", updated.Type)
-	d.Set("failure_threshold",  updated.FailureThreshold)
+	d.Set("failure_threshold", updated.FailureThreshold)
 	d.Set("request_interval", updated.RequestInterval)
-	d.Set("fully_qualified_domain_name",  updated.FullyQualifiedDomainName)
-	d.Set("search_string",  updated.SearchString)
+	d.Set("fully_qualified_domain_name", updated.FullyQualifiedDomainName)
+	d.Set("search_string", updated.SearchString)
 	d.Set("ip_address", updated.IPAddress)
 	d.Set("port", updated.Port)
 	d.Set("resource_path", updated.ResourcePath)
 
-
 	// read the tags
-		req := &route53.ListTagsForResourceInput{
+	req := &route53.ListTagsForResourceInput{
 		ResourceID:   aws.String(d.Id()),
 		ResourceType: aws.String("healthcheck"),
 	}
@@ -216,7 +197,6 @@ func resourceAwsRoute53HealthCheckRead(d *schema.ResourceData, meta interface{})
 	if err := d.Set("tags", tagsToMapR53(tags)); err != nil {
 		return err
 	}
-
 
 	return nil
 }

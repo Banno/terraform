@@ -29,6 +29,11 @@ func resourceAwsRoute53Record() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"fqdn": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
 			"type": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -92,12 +97,24 @@ func resourceAwsRoute53Record() *schema.Resource {
 				Optional: true,
 			},
 
+			"failover": &schema.Schema{ // PRIMARY | SECONDARY
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+
+			"health_check_id": &schema.Schema{ // ID of health check
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+
 			"records": &schema.Schema{
-				Type:          schema.TypeSet,
+				Type: schema.TypeSet,
+				Elem: &schema.Schema{Type: schema.TypeString},
+				Set: func(v interface{}) int {
+					return hashcode.String(v.(string))
+				},
 				ConflictsWith: []string{"alias"},
-				Elem:          &schema.Schema{Type: schema.TypeString},
 				Optional:      true,
-				Set:           schema.HashString,
 			},
 		},
 	}
@@ -225,6 +242,8 @@ func resourceAwsRoute53RecordRead(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 	en := expandRecordName(d.Get("name").(string), *zoneRecord.HostedZone.Name)
+	log.Printf("[DEBUG] Expanded record name: %s", en)
+	d.Set("fqdn", en)
 
 	lopts := &route53.ListResourceRecordSetsInput{
 		HostedZoneID:    aws.String(cleanZoneID(zone)),
