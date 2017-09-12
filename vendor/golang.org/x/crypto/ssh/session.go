@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"io"
 	"io/ioutil"
 	"sync"
@@ -382,6 +383,8 @@ func (s *Session) Wait() error {
 	}
 	waitErr := <-s.exitStatus
 
+	log.Printf("Wait(): waitErr = %v\n", waitErr)
+
 	if s.stdinPipeWriter != nil {
 		s.stdinPipeWriter.Close()
 	}
@@ -391,6 +394,7 @@ func (s *Session) Wait() error {
 			copyError = err
 		}
 	}
+	log.Printf("Wait(): copyError = %v\n", copyError)
 	if waitErr != nil {
 		return waitErr
 	}
@@ -404,6 +408,8 @@ func (s *Session) wait(reqs <-chan *Request) error {
 		switch msg.Type {
 		case "exit-status":
 			wm.status = int(binary.BigEndian.Uint32(msg.Payload))
+			log.Printf("exit-status: %d\n", wm.status)
+
 		case "exit-signal":
 			var sigval struct {
 				Signal     string
@@ -415,6 +421,8 @@ func (s *Session) wait(reqs <-chan *Request) error {
 				return err
 			}
 
+			log.Printf("exit-signal: %v\n", sigval)
+
 			// Must sanitize strings?
 			wm.signal = sigval.Signal
 			wm.msg = sigval.Error
@@ -422,15 +430,18 @@ func (s *Session) wait(reqs <-chan *Request) error {
 		default:
 			// This handles keepalives and matches
 			// OpenSSH's behaviour.
+			log.Printf("wait() - default - %v\n", msg)
 			if msg.WantReply {
 				msg.Reply(false, nil)
 			}
 		}
 	}
 	if wm.status == 0 {
+		log.Printf("wm.status == 0\n")
 		return nil
 	}
 	if wm.status == -1 {
+		log.Printf("wm.status == -1\n")
 		// exit-status was never sent from server
 		if wm.signal == "" {
 			// signal was not sent either.  RFC 4254

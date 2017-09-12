@@ -464,10 +464,21 @@ func (c *Communicator) scpSession(scpCommand string, f func(io.Writer, *bufio.Re
 	log.Println("Waiting for SSH session to complete.")
 	err = session.Wait()
 	if err != nil {
+		log.Printf("err = %v\n", err)
+
 		if exitErr, ok := err.(*ssh.ExitError); ok {
+			log.Printf("hi mom")
+
 			// Otherwise, we have an ExitErorr, meaning we can just read
 			// the exit status
-			log.Printf("non-zero exit status: %d", exitErr.ExitStatus())
+			msg := fmt.Sprintf("non-zero exit status: %d, %v", exitErr.ExitStatus(), exitErr)
+			if exitErr.Msg() != "" {
+				msg += fmt.Sprintf(", message=%s", exitErr.Msg())
+			}
+			if exitErr.Signal() != "" {
+				msg += fmt.Sprintf(", signal=%s", exitErr.Signal())
+			}
+			log.Printf(msg)
 
 			// If we exited with status 127, it means SCP isn't available.
 			// Return a more descriptive error for that.
@@ -594,11 +605,13 @@ func scpUploadDir(root string, fs []os.FileInfo, w io.Writer, r *bufio.Reader) e
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 			symPath, err := filepath.EvalSymlinks(realPath)
 			if err != nil {
+				log.Printf("A: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 
 			symFi, err := os.Lstat(symPath)
 			if err != nil {
+				log.Printf("B: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 
@@ -609,6 +622,7 @@ func scpUploadDir(root string, fs []os.FileInfo, w io.Writer, r *bufio.Reader) e
 			// It is a regular file (or symlink to a file), just upload it
 			f, err := os.Open(realPath)
 			if err != nil {
+				log.Printf("C: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 
@@ -618,6 +632,7 @@ func scpUploadDir(root string, fs []os.FileInfo, w io.Writer, r *bufio.Reader) e
 			}()
 
 			if err != nil {
+				log.Printf("D: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 
@@ -628,18 +643,21 @@ func scpUploadDir(root string, fs []os.FileInfo, w io.Writer, r *bufio.Reader) e
 		err := scpUploadDirProtocol(fi.Name(), w, r, func() error {
 			f, err := os.Open(realPath)
 			if err != nil {
+				log.Printf("E: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 			defer f.Close()
 
 			entries, err := f.Readdir(-1)
 			if err != nil {
+				log.Printf("F: realPath=%s, err=%v\n", realPath, err)
 				return err
 			}
 
 			return scpUploadDir(realPath, entries, w, r)
 		})
 		if err != nil {
+			log.Printf("G: realPath=%s, err=%v\n", realPath, err)
 			return err
 		}
 	}
